@@ -13,7 +13,7 @@ A strategic territory conquest & diplomacy simulation bot for Discord.
 ## Setup
 1. Clone repository:
    ```bash
-   git clone https://github.com/ASDF3001/worldwarbot-EN-.git
+   git clone https://github.com/rds9dev/worldwarbot-EN-.git
    cd worldwarbot-EN-
    ```
 2. Install dependencies:
