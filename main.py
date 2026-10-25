@@ -26,7 +26,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com").rstrip("/")
 DB_FILE = os.getenv("DB_FILE", "war_game_worlds.db")
 BACKUP_DIR = os.getenv("BACKUP_DIR", "db_backups")
-PROMO_LINK = "https://discord.gg/dsGhNNJfzc"
+PROMO_LINK = "https://discord.gg/km2VDjCNpE"
 TIPS_FILE = "tips.txt"
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')

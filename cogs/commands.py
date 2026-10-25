@@ -459,7 +459,7 @@ class CommandsCog(commands.Cog):
     @app_commands.command(name="join", description="公式サポートサーバーへの参加リンクを表示します")
     async def cmd_join(self, interaction: discord.Interaction):
         await safe_defer(interaction)
-        await interaction.followup.send("公式サポートサーバーへの参加はこちら！\nバグ報告や質問、他プレイヤーとの交流にどうぞ。\nhttps://discord.gg/3vFrHqamgv")
+        await interaction.followup.send("公式サポートサーバーへの参加はこちら！\nバグ報告や質問、他プレイヤーとの交流にどうぞ。\nhttps://discord.gg/km2VDjCNpE")
 
     @app_commands.command(name="world_setting", description="自分が行動する世界を手動設定します（チャンネル未設定サーバー用）")
     @app_commands.choices(world_num=[app_commands.Choice(name="世界 #1", value=1), app_commands.Choice(name="世界 #2", value=2), app_commands.Choice(name="世界 #3", value=3)])
