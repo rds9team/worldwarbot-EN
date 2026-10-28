@@ -32,8 +32,6 @@ TIPS_FILE = "tips.txt"
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
-SAY_LOG_DIR = os.path.expanduser("./world-war-bot/say_log")
-os.makedirs(SAY_LOG_DIR, exist_ok=True)
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
 # ==============================================================================
@@ -55,7 +53,7 @@ def get_paypay_link():
         with open("paypay.txt", "r", encoding="utf-8") as f:
             link = f.read().strip()
             if link: return link
-    return "現在、支援リンクは設定されていません。"
+    return "No support link is currently configured."
 
 COUNTRY_MAP = load_country_map()
 TERRITORY_YIELD = {"USA": 300, "RUS": 300, "CHN": 300, "JPN": 200, "DEU": 200, "FRA": 200, "GBR": 200, "IND": 200, "BRA": 150, "AUS": 150, "CAN": 150}
@@ -95,15 +93,15 @@ try:
     country_to_mask = {row['iso_alpha'].upper().strip(): ast.literal_eval(row['rgb_str']) for _, row in df_countries.iterrows()}
     VALID_CODES = set(country_to_mask.keys())
 except Exception as e:
-    logger.error(f"countries_data.csv 読み込み失敗: {e}")
+    logger.error(f"Failed to load countries_data.csv: {e}")
     VALID_CODES = set()
 
 # ==============================================================================
-# ユーティリティ・DB関数群
+# Utility & DB Functions
 # ==============================================================================
 def get_promo_and_tip():
     res = ""
-    if random.random() < 0.1: res += f"\n\n-# 公式サポートサーバー: {PROMO_LINK}"
+    if random.random() < 0.1: res += f"\n\n-# Official Support Server: {PROMO_LINK}"
     if random.random() < 0.3:
         try:
             if os.path.exists(TIPS_FILE):
@@ -162,7 +160,7 @@ def init_db():
             add_column("server_channels", "last_reset_date", f"TEXT DEFAULT '{datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d')}'")
             add_column("user_settings", "confirm_attack", "INTEGER DEFAULT 1")
             conn.commit()
-    except Exception as e: logger.error(f"DB初期化エラー: {e}")
+    except Exception as e: logger.error(f"DB initialization error: {e}")
 
 async def safe_defer(interaction: discord.Interaction, ephemeral: bool = False):
     try:
@@ -202,7 +200,7 @@ async def ensure_world_context(interaction: discord.Interaction) -> int:
             if channel_id == row[0]: return 1
             if channel_id == row[1]: return 2
             if channel_id == row[2]: return 3
-            msg = "[エラー] このチャンネルでは実行できません。\n各Worldの専用チャンネルを使用してください。"
+            msg = "[Error] This command cannot be run in this channel.\nPlease use the designated World channel."
             if interaction.response.is_done(): await interaction.followup.send(msg, ephemeral=True)
             else: await interaction.response.send_message(msg, ephemeral=True)
             return 0
@@ -247,7 +245,7 @@ def add_world_log(guild_id: str, world_id: int, text: str):
             c.execute("INSERT INTO world_logs (guild_id, world_id, timestamp, event_text) VALUES (?, ?, ?, ?)", (guild_id, world_id, now_str, text))
             conn.commit()
     except Exception as e:
-        logger.error(f"世界ログ記録エラー: {e}")
+        logger.error(f"World log record error: {e}")
 
 def add_trophy(guild_id: str, world_id: int, user_id: str, trophy_id: str):
     try:
@@ -258,7 +256,7 @@ def add_trophy(guild_id: str, world_id: int, user_id: str, trophy_id: str):
                 c.execute("UPDATE players SET trophy_count = trophy_count + 1 WHERE guild_id=? AND world_id=? AND user_id=?", (guild_id, world_id, user_id))
             conn.commit()
     except Exception as e:
-        logger.error(f"実績追加エラー: {e}")
+        logger.error(f"Trophy unlock error: {e}")
 
 def check_and_create_user(cursor, guild_id, world_id, user_id, user_name):
     cursor.execute("SELECT gold FROM players WHERE guild_id = ? AND world_id = ? AND user_id = ?", (guild_id, world_id, user_id))
@@ -284,7 +282,7 @@ def _generate_current_map_sync(guild_id: str, world_id: int):
         img_bin.seek(0)
         return discord.File(fp=img_bin, filename="war_map.png"), occupied_lands
     except Exception as e:
-        logger.error(f"マップ生成エラー: \n{traceback.format_exc()}")
+        logger.error(f"Map generation error: \n{traceback.format_exc()}")
         return None, []
 
 
@@ -311,17 +309,17 @@ async def generate_and_send_news(guild, channel):
             if not events: continue
             events_str = "\n".join(events[:50])
             prompt = f"""
-あなたは「World War Bot」の世界情勢を報道する、架空のデイリー新聞「World Times」の凄腕AI記者です。
-以下の直近の出来事ログを元に、面白くて臨場感のある新聞記事テキスト（マークダウン形式、最大400文字程度）を作成してください。
+You are a senior war correspondent for "World Times", a daily newspaper reporting on geopolitical situations in World War Bot.
+Based on the following recent event logs, write an engaging and concise news article in English (markdown format, around 100-150 words).
 
-【出来事ログ（世界#{w_id}）】
+[Recent Events (World #{w_id})]
 {events_str}
 
-【出力要件】
-- キャッチーな見出し（大見出し）を含めること
-- 記者の視点から、世界の戦況や外交の動きをドラマチックに要約すること
+[Requirements]
+- Include a bold headline
+- Summarize military conflicts and diplomatic shifts dramatically
 """
-            url = f"{GEMINI_BASE_URL}/v1beta/models/gemini-3.5-flash-lite:generateContent?key={GEMINI_API_KEY}"
+            url = f"{GEMINI_BASE_URL}/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
             payload = {"contents": [{"parts": [{"text": prompt}]}]}
             headers = {"Content-Type": "application/json"}
             
@@ -332,17 +330,17 @@ async def generate_and_send_news(guild, channel):
                         try:
                             news_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
                         except (KeyError, IndexError):
-                            news_text = "特派員からの通信が途絶えました。(生成エラー)"
+                            news_text = "Communication from correspondent interrupted. (Generation error)"
                     else:
                         error_text = await resp.text()
-                        logger.error(f"Gemini APIエラー: {resp.status} - {error_text}")
+                        logger.error(f"Gemini API error: {resp.status} - {error_text}")
                         continue
             
-            embed = discord.Embed(title=f"📰 World Times - 世界 #{w_id} 最新情勢", description=news_text, color=0x3498db)
+            embed = discord.Embed(title=f"📰 World Times - World #{w_id} Situation Report", description=news_text, color=0x3498db)
             embed.set_footer(text="AI Reporter")
             await channel.send(embed=embed)
     except Exception as e:
-        logger.error(f"新聞生成エラー: {e}")
+        logger.error(f"Newspaper generation error: {e}")
 
 import math
 from discord.ext import tasks
@@ -405,12 +403,12 @@ async def change_status_task():
         bot.status_index = (bot.status_index + 1) % len(statuses)
         await bot.change_presence(activity=statuses[bot.status_index])
     except Exception as e:
-        logger.error(f"ステータス更新エラー: {e}")
+        logger.error(f"Status update error: {e}")
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.CommandInvokeError) and isinstance(error.original, (discord.NotFound, discord.errors.NotFound)):
-        logger.warning(f"コマンド ({interaction.command.name if interaction.command else 'unknown'}) が3秒以内に応答できずタイムアウトしました(10062)。")
+        logger.warning(f"Command ({interaction.command.name if interaction.command else 'unknown'}) timed out after 3 seconds (10062).")
         return
     if isinstance(error, app_commands.CommandOnCooldown):
         minutes, seconds = divmod(int(error.retry_after), 60)
@@ -426,7 +424,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
             else: await interaction.response.send_message(msg, ephemeral=True)
         except: pass
     else:
-        logger.error(f"コマンドエラー ({interaction.command.name}): \n{traceback.format_exc()}")
+        logger.error(f"Command error ({interaction.command.name}): \n{traceback.format_exc()}")
         try:
             msg = "[Error] An unexpected error occurred.\n(If 403 Forbidden, check Bot channel permissions)"
             if interaction.response.is_done(): await interaction.followup.send(msg, ephemeral=True)
@@ -463,7 +461,7 @@ async def scheduled_tasks():
                 if row and row[1] == 1 and row[0]:
                     channel = guild.get_channel(int(row[0]))
                     if channel:
-                        try: await channel.send("[定期リセット完了] データがワイプされ、新たな歴史が始まりました。")
+                        try: await channel.send("[Scheduled Reset Complete] World data has been wiped. A new chapter of history begins.")
                         except: pass
     try:
         with get_db_connection() as conn:
@@ -506,10 +504,10 @@ async def scheduled_tasks():
                 channel = guild.get_channel(int(row[0]))
                 if channel:
                     try: 
-                        await channel.send("[定時給付] 基本給与・税収・配給石油が振り込まれました。(※戦債がある場合は一部天引きされます)")
+                        await channel.send("[Scheduled Payout] Base salary, tax revenues, and oil rations have been deposited. (War bonds deducted if any)")
                         await generate_and_send_news(guild, channel)
                     except: pass
-    except Exception as e: logger.error(f"定時給付エラー: {e}")
+    except Exception as e: logger.error(f"Scheduled payout error: {e}")
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
@@ -519,8 +517,8 @@ async def on_guild_join(guild: discord.Guild):
             if ch.permissions_for(guild.me).send_messages: channel = ch; break
     if channel: 
         embed = discord.Embed(
-            title="全世界戦争Botへようこそ", 
-            description="導入ありがとうございます！\n\n**【管理者向け】**\n`/op setup` を実行して各設定コマンドを確認してください。\n\n**【全プレイヤー向け】**\nルール確認は `/help`、かんたん操作は `/command` を確認してください！", 
+            title="Welcome to World War Bot", 
+            description="Thank you for inviting the bot!\n\n**[Admins]**\nRun `/op setup` to set up server channels.\n\n**[Players]**\nCheck `/help` for rules and `/command` for command shortcuts!", 
             color=0x2ecc71
         )
         try: await channel.send(embed=embed)
@@ -532,20 +530,20 @@ async def update_presence():
         total_members = sum(guild.member_count for guild in bot.guilds if guild.member_count)
         activity = discord.Activity(
             type=discord.ActivityType.watching, 
-            name=f"{total_members}人のプレイヤー"
+            name=f"{total_members} players"
         )
         await bot.change_presence(status=discord.Status.online, activity=activity)
     except Exception as e:
-        logger.error(f"ステータス更新エラー: {e}")
+        logger.error(f"Status update error: {e}")
 
 @bot.event
 async def on_ready():
     logger.info(f"Bot started: {bot.user}")
-    # Botのログインが完了してからステータス更新タスクを開始する
+    # Start status presence task once bot is ready
     if not update_presence.is_running():
         update_presence.start()
 
 if __name__ == "__main__":
-    if not BOT_TOKEN: print("[エラー] .envファイルに DISCORD_BOT_TOKEN が設定されていません。")
+    if not BOT_TOKEN: print("[Error] DISCORD_BOT_TOKEN is not set in .env file.")
     else: bot.run(BOT_TOKEN)
 # botup

@@ -522,7 +522,7 @@ class CommandsCog(commands.Cog):
 
             db_keys = player_row.keys()
             user_data = {
-                "country_name": player_row["main_country"] if "main_country" in db_keys else "未設定",
+                "country_name": player_row["main_country"] if ("main_country" in db_keys and player_row["main_country"] != "未設定") else "Not Set",
                 "user_name": player_row["user_name"] if "user_name" in db_keys else interaction.user.display_name,
                 "money": player_row["gold"] if "gold" in db_keys else 0,
                 "oil": player_row["oil"] if "oil" in db_keys else 0,
@@ -531,12 +531,12 @@ class CommandsCog(commands.Cog):
                 "defense": total_defense,
                 "invest": player_row["invest"] if "invest" in db_keys else 0,
                 "tech_level": player_row["tech_level"] if "tech_level" in db_keys else 1,
-                "title": player_row["title"] if "title" in db_keys else "未設定",
+                "title": player_row["title"] if ("title" in db_keys and player_row["title"] != "未設定") else "None",
                 "wins": player_row["wins"] if "wins" in db_keys else 0,
                 "losses": player_row["losses"] if "losses" in db_keys else 0,
                 "trophy_count": player_row["trophy_count"] if "trophy_count" in db_keys else 0,
-                "status_effects": "なし",
-                "rank": "集計中" 
+                "status_effects": "None",
+                "rank": "Calculating" 
             }
         except sqlite3.Error as e:
             return await interaction.followup.send(f"データベースの読み込みに失敗しました: {e}", ephemeral=True)
@@ -787,16 +787,17 @@ class CommandsCog(commands.Cog):
             total_battles = wins + losses
             win_rate = (wins / total_battles * 100) if total_battles > 0 else 0.0
 
-        embed = discord.Embed(title=f"🏅 {user_name} の実績と称号", color=0x9b59b6)
-        embed.add_field(name="現在の称号", value=f"**【 {title if title else '未設定'} 】**", inline=False)
-        embed.add_field(name="戦績", value=f"⚔️ 勝利: {wins} / 敗北: {losses}\n📊 勝率: {win_rate:.1f}%", inline=True)
-        embed.add_field(name="獲得トロフィー", value=f"🏆 {trophy_count if trophy_count else 0} 個", inline=True)
+        embed = discord.Embed(title=f"Achievements & Titles - {user_name}", color=0x9b59b6)
+        display_title = title if (title and title != "未設定") else "None"
+        embed.add_field(name="Current Title", value=f"**[ {display_title} ]**", inline=False)
+        embed.add_field(name="Battle Record", value=f"Wins: {wins} / Losses: {losses}\nWin Rate: {win_rate:.1f}%", inline=True)
+        embed.add_field(name="Trophies", value=f"{trophy_count if trophy_count else 0}", inline=True)
         
-        embed.set_footer(text="※称号は /trophy_equip で変更できます。")
+        embed.set_footer(text="Change title via /trophy_equip")
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="trophy_equip", description="取得済みの称号を装備します")
+    @app_commands.command(name="trophy_equip", description="Equip an unlocked title")
     async def cmd_trophy_equip(self, interaction: discord.Interaction, title_name: str):
         await safe_defer(interaction, ephemeral=True)
         world_id = await ensure_world_context(interaction)
@@ -806,13 +807,13 @@ class CommandsCog(commands.Cog):
         with get_db_connection() as conn:
             c = conn.cursor()
             c.execute("SELECT 1 FROM unlocked_trophies WHERE guild_id=? AND world_id=? AND user_id=? AND trophy_id=?", (guild_id, world_id, user_id, title_name))
-            if not c.fetchone() and title_name != "未設定":
-                return await interaction.followup.send(f"[エラー] 称号「{title_name}」はまだ獲得していません。", ephemeral=True)
+            if not c.fetchone() and title_name not in ("未設定", "None", "Not Set"):
+                return await interaction.followup.send(f"[Error] You have not unlocked the title '{title_name}'.", ephemeral=True)
             
             c.execute("UPDATE players SET title=? WHERE guild_id=? AND world_id=? AND user_id=?", (title_name, guild_id, world_id, user_id))
             conn.commit()
             
-        await interaction.followup.send(f"🎖️ **称号変更**\n称号を **【 {title_name} 】** に変更しました！", ephemeral=True)
+        await interaction.followup.send(f"**Title Equipped**\nEquipped title **[ {title_name} ]**!", ephemeral=True)
 
     @app_commands.command(name="peace", description="指定したプレイヤーに24時間の不戦協定を提案します")
     async def cmd_peace(self, interaction: discord.Interaction, target_user: discord.Member):

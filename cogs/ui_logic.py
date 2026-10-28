@@ -59,33 +59,33 @@ class StatsView(discord.ui.View):
 
     @discord.ui.button(label="Economy", style=discord.ButtonStyle.success)
     async def btn_eco(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.author_id: return await interaction.response.send_message("操作できません。", ephemeral=True)
+        if interaction.user.id != self.author_id: return await interaction.response.send_message("You cannot interact with this menu.", ephemeral=True)
         await interaction.response.edit_message(embed=self.generate_embed("economy"), view=self)
 
     @discord.ui.button(label="Military", style=discord.ButtonStyle.danger)
     async def btn_mil(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.author_id: return await interaction.response.send_message("操作できません。", ephemeral=True)
+        if interaction.user.id != self.author_id: return await interaction.response.send_message("You cannot interact with this menu.", ephemeral=True)
         await interaction.response.edit_message(embed=self.generate_embed("military"), view=self)
 
-    @discord.ui.button(label="実績・プロフ", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Profile", style=discord.ButtonStyle.primary)
     async def btn_prof(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.author_id: return await interaction.response.send_message("操作できません。", ephemeral=True)
+        if interaction.user.id != self.author_id: return await interaction.response.send_message("You cannot interact with this menu.", ephemeral=True)
         await interaction.response.edit_message(embed=self.generate_embed("profile"), view=self)
 
-class InvestModal(discord.ui.Modal, title="国家予算の投資"):
-    amount_input = discord.ui.TextInput(label="投資額 (Gold)", placeholder="例: 1000", required=True)
+class InvestModal(discord.ui.Modal, title="Invest National Budget"):
+    amount_input = discord.ui.TextInput(label="Investment Amount (Gold)", placeholder="e.g. 1000", required=True)
     async def on_submit(self, interaction: discord.Interaction):
         try: amount = int(self.amount_input.value)
-        except ValueError: return await interaction.response.send_message("[エラー] 数字を入力してください。", ephemeral=True)
+        except ValueError: return await interaction.response.send_message("[Error] Please enter a valid number.", ephemeral=True)
         await run_invest(interaction, amount)
 
-class SpyModal(discord.ui.Modal, title="スパイの派遣 (費用: 1500 Gold)"):
-    target_input = discord.ui.TextInput(label="潜入先の国コード", placeholder="例: JPN", required=True)
+class SpyModal(discord.ui.Modal, title="Dispatch Spy (Cost: 1,500 Gold)"):
+    target_input = discord.ui.TextInput(label="Target Country ISO Code", placeholder="e.g. JPN", required=True)
     async def on_submit(self, interaction: discord.Interaction):
         await run_spy(interaction, self.target_input.value)
 
-class PropagandaModal(discord.ui.Modal, title="プロパガンダ工作 (費用: 3000 Gold)"):
-    target_input = discord.ui.TextInput(label="工作先の国コード", placeholder="例: JPN", required=True)
+class PropagandaModal(discord.ui.Modal, title="Propaganda Campaign (Cost: 3,000 Gold)"):
+    target_input = discord.ui.TextInput(label="Target Country ISO Code", placeholder="e.g. JPN", required=True)
     async def on_submit(self, interaction: discord.Interaction):
         await run_propaganda(interaction, self.target_input.value)
 class OilImportView(discord.ui.View):
@@ -94,50 +94,50 @@ class OilImportView(discord.ui.View):
         self.guild_id = guild_id; self.world_id = world_id; self.buyer_id = buyer_id
         self.seller_id = seller_id; self.amount = amount; self.price = price
 
-    @discord.ui.button(label="許可する", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="Approve", style=discord.ButtonStyle.success)
     async def btn_accept(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if str(interaction.user.id) != self.seller_id: return await interaction.response.send_message("[エラー] 権限がありません。", ephemeral=True)
+        if str(interaction.user.id) != self.seller_id: return await interaction.response.send_message("[Error] You do not have permission.", ephemeral=True)
         with get_db_connection() as conn:
             c = conn.cursor()
             c.execute("SELECT oil FROM players WHERE guild_id=? AND world_id=? AND user_id=?", (self.guild_id, self.world_id, self.seller_id))
             seller_row = c.fetchone()
-            if not seller_row or seller_row[0] < self.amount: return await interaction.response.send_message("[エラー] オイル不足です。", ephemeral=True)
+            if not seller_row or seller_row[0] < self.amount: return await interaction.response.send_message("[Error] Insufficient oil reserves.", ephemeral=True)
             c.execute("SELECT gold FROM players WHERE guild_id=? AND world_id=? AND user_id=?", (self.guild_id, self.world_id, self.buyer_id))
             buyer_row = c.fetchone()
-            if not buyer_row or buyer_row[0] < self.price: return await interaction.response.send_message("[エラー] 相手の資金不足です。", ephemeral=True)
+            if not buyer_row or buyer_row[0] < self.price: return await interaction.response.send_message("[Error] Buyer has insufficient funds.", ephemeral=True)
 
             c.execute("UPDATE players SET oil=oil-?, gold=gold+? WHERE guild_id=? AND world_id=? AND user_id=?", (self.amount, self.price, self.guild_id, self.world_id, self.seller_id))
             c.execute("UPDATE players SET oil=oil+?, gold=gold-? WHERE guild_id=? AND world_id=? AND user_id=?", (self.amount, self.price, self.guild_id, self.world_id, self.buyer_id))
             conn.commit()
 
         for child in self.children: child.disabled = True
-        await interaction.response.edit_message(content=f"[取引成立 / 世界#{self.world_id}]\n<@{self.buyer_id}> へ **{self.amount} L** を輸出し **{self.price} Gold** を受け取りました。", view=self)
+        await interaction.response.edit_message(content=f"[Trade Completed / World #{self.world_id}]\nExported **{self.amount} L** to <@{self.buyer_id}> and received **{self.price} Gold**.", view=self)
 
         guild = interaction.client.get_guild(int(self.guild_id))
         if guild:
             buyer_member = guild.get_member(int(self.buyer_id))
             if buyer_member:
-                try: await buyer_member.send(f"[取引完了 / 世界#{self.world_id}]\n<@{self.seller_id}> が申請を許可しました。\n**{self.amount} L** を獲得し、**{self.price} Gold** 支払いました。")
+                try: await buyer_member.send(f"[Trade Completed / World #{self.world_id}]\n<@{self.seller_id}> approved your import request.\nReceived **{self.amount} L** and paid **{self.price} Gold**.")
                 except: pass
 
-    @discord.ui.button(label="Decline", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Decline", style=discord.ButtonStyle.secondary)
     async def btn_reject(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if str(interaction.user.id) != self.seller_id: return await interaction.response.send_message("[エラー] 権限がありません。", ephemeral=True)
+        if str(interaction.user.id) != self.seller_id: return await interaction.response.send_message("[Error] You do not have permission.", ephemeral=True)
         for child in self.children: child.disabled = True
-        await interaction.response.edit_message(content=f"[拒否 / 世界#{self.world_id}] 取引を拒否しました。", view=self)
+        await interaction.response.edit_message(content=f"[Trade Declined / World #{self.world_id}] Trade proposal was declined.", view=self)
 
 class DiplomacyUserSelect(discord.ui.UserSelect):
     def __init__(self, action: str, world_id: int):
         self.action = action; self.world_id = world_id
-        super().__init__(placeholder="対象のプレイヤーを選択してください...")
+        super().__init__(placeholder="Select a target player...")
 
     async def callback(self, interaction: discord.Interaction):
         await safe_defer(interaction) 
         guild_id, user_id, target_id = str(interaction.guild_id), str(interaction.user.id), str(self.values[0].id)
         w_id = self.world_id; target = self.values[0]
 
-        if user_id == target_id: return await interaction.followup.send("[エラー] 自分は選択できません。", ephemeral=True)
-        if target.bot: return await interaction.followup.send("[エラー] Botは選択できません。", ephemeral=True)
+        if user_id == target_id: return await interaction.followup.send("[Error] You cannot select yourself.", ephemeral=True)
+        if target.bot: return await interaction.followup.send("[Error] Bots cannot be selected.", ephemeral=True)
 
         target_member = interaction.guild.get_member(int(target_id))
 
@@ -146,73 +146,73 @@ class DiplomacyUserSelect(discord.ui.UserSelect):
             is_ally = is_allied(guild_id, w_id, user_id, target_id)
 
             if self.action == "war":
-                if is_ally: return await interaction.followup.send("[エラー] 同盟国には宣戦布告できません。", ephemeral=True)
+                if is_ally: return await interaction.followup.send("[Error] Cannot declare war on an ally.", ephemeral=True)
                 view = discord.ui.View(timeout=86400)
-                btn_accept = discord.ui.Button(label="受諾する", style=discord.ButtonStyle.danger)
-                btn_reject = discord.ui.Button(label="Decline", style=discord.ButtonStyle.success)
+                btn_accept = discord.ui.Button(label="Accept", style=discord.ButtonStyle.danger)
+                btn_reject = discord.ui.Button(label="Decline", style=discord.ButtonStyle.secondary)
 
                 async def accept_callback(i: discord.Interaction):
-                    if str(i.user.id) != target_id: return await i.response.send_message("[エラー] 権限がありません。", ephemeral=True)
+                    if str(i.user.id) != target_id: return await i.response.send_message("[Error] You do not have permission.", ephemeral=True)
                     with get_db_connection() as conn2:
                         c2 = conn2.cursor()
                         c2.execute("INSERT OR IGNORE INTO wars (guild_id, world_id, attacker_id, defender_id) VALUES (?, ?, ?, ?)", (guild_id, w_id, user_id, target_id))
                         conn2.commit()
                     for child in view.children: child.disabled = True
-                    await i.response.edit_message(content=f"[宣戦布告 受諾 / 世界#{w_id}]\n<@{target_id}> と <@{user_id}> は正式に戦争状態に突入しました！", view=view)
+                    await i.response.edit_message(content=f"[War Accepted / World #{w_id}]\n<@{target_id}> and <@{user_id}> have officially entered a state of war!", view=view)
 
                 async def reject_callback(i: discord.Interaction):
-                    if str(i.user.id) != target_id: return await i.response.send_message("[エラー] 権限がありません。", ephemeral=True)
+                    if str(i.user.id) != target_id: return await i.response.send_message("[Error] You do not have permission.", ephemeral=True)
                     for child in view.children: child.disabled = True
-                    await i.response.edit_message(content=f"[宣戦布告 拒否 / 世界#{w_id}]\n<@{target_id}> は宣戦布告を拒否しました。\n<@{user_id}> は強行軍（奇襲）を仕掛けるしかありません。", view=view)
+                    await i.response.edit_message(content=f"[War Declined / World #{w_id}]\n<@{target_id}> declined the war declaration.\n<@{user_id}> can only launch a surprise attack.", view=view)
 
                 btn_accept.callback = accept_callback; btn_reject.callback = reject_callback
                 view.add_item(btn_accept); view.add_item(btn_reject)
 
-                content = f"**[宣戦布告の使者 / 世界#{w_id}]**\n<@{user_id}> から宣戦布告の使者が到着しました！\n受諾するか拒否するか選択してください。\n※拒否しても交渉決裂となり、相手は強行軍(奇襲)を仕掛けることができます。"
+                content = f"**[War Declaration Envoy / World #{w_id}]**\nA war declaration envoy arrived from <@{user_id}>!\nChoose to accept or decline.\n*Declining means diplomatic breakdown; opponent can launch surprise attacks."
                 if target_member: await send_dm_fallback(target_member, interaction.channel, content, view)
                 else: await interaction.channel.send(f"<@{target_id}> {content}", view=view)
-                await interaction.followup.send("[完了] 宣戦布告の使者を派遣しました。", ephemeral=True)
+                await interaction.followup.send("[Done] War declaration envoy dispatched.", ephemeral=True)
 
             elif self.action == "alliance_invite":
-                if is_ally: return await interaction.followup.send("[エラー] すでに同盟を結んでいます。", ephemeral=True)
+                if is_ally: return await interaction.followup.send("[Error] Already allied with this player.", ephemeral=True)
                 view = discord.ui.View(timeout=86400)
-                btn_accept = discord.ui.Button(label="承認する", style=discord.ButtonStyle.success)
+                btn_accept = discord.ui.Button(label="Accept", style=discord.ButtonStyle.success)
                 async def accept_callback(i: discord.Interaction):
-                    if str(i.user.id) != target_id: return await i.response.send_message("[エラー] 権限がありません。", ephemeral=True)
+                    if str(i.user.id) != target_id: return await i.response.send_message("[Error] You do not have permission.", ephemeral=True)
                     with get_db_connection() as conn2:
                         c2 = conn2.cursor()
                         c2.execute("INSERT OR IGNORE INTO alliances (guild_id, world_id, user_a, user_b) VALUES (?, ?, ?, ?)", (guild_id, w_id, user_id, target_id))
                         c2.execute("DELETE FROM wars WHERE guild_id=? AND world_id=? AND ((attacker_id=? AND defender_id=?) OR (attacker_id=? AND defender_id=?))", (guild_id, w_id, user_id, target_id, target_id, user_id))
                         conn2.commit()
                     for child in view.children: child.disabled = True
-                    await i.response.edit_message(content=f"[同盟成立 / 世界#{w_id}]\n<@{user_id}> と <@{target_id}> が軍事同盟を結びました！", view=view)
+                    await i.response.edit_message(content=f"[Alliance Formed / World #{w_id}]\n<@{user_id}> and <@{target_id}> have formed a military alliance!", view=view)
                 btn_accept.callback = accept_callback
                 view.add_item(btn_accept)
                 
-                content = f"**[軍事同盟の提案 / 世界#{w_id}]**\n<@{user_id}> から軍事同盟の提案が届きました！\n承認を押して同盟を結びますか？"
+                content = f"**[Alliance Proposal / World #{w_id}]**\nA military alliance proposal arrived from <@{user_id}>!\nAccept to form an alliance?"
                 if target_member: await send_dm_fallback(target_member, interaction.channel, content, view)
                 else: await interaction.channel.send(f"<@{target_id}> {content}", view=view)
-                await interaction.followup.send("[完了] 同盟の提案を送信しました。", ephemeral=True)
+                await interaction.followup.send("[Done] Alliance proposal sent.", ephemeral=True)
 
             elif self.action == "alliance_cancel":
-                if not is_ally: return await interaction.followup.send("[エラー] 同盟を結んでいません。", ephemeral=True)
+                if not is_ally: return await interaction.followup.send("[Error] You are not allied with this player.", ephemeral=True)
                 c.execute("DELETE FROM alliances WHERE guild_id=? AND world_id=? AND ((user_a=? AND user_b=?) OR (user_a=? AND user_b=?))", (guild_id, w_id, user_id, target_id, target_id, user_id))
                 conn.commit()
-                await interaction.channel.send(f"[同盟破棄 / 世界#{w_id}] <@{user_id}> が <@{target_id}> との同盟を破棄しました。")
-                await interaction.followup.send("[完了] 同盟を破棄しました。", ephemeral=True)
+                await interaction.channel.send(f"[Alliance Dissolved / World #{w_id}] <@{user_id}> dissolved the alliance with <@{target_id}>.")
+                await interaction.followup.send("[Done] Alliance dissolved.", ephemeral=True)
 
 class DiplomacyActionSelect(discord.ui.Select):
     def __init__(self, world_id: int):
         self.world_id = world_id
         options = [
-            discord.SelectOption(label="宣戦布告", value="war"),
-            discord.SelectOption(label="同盟の提案", value="alliance_invite"),
-            discord.SelectOption(label="同盟の破棄", value="alliance_cancel"),
-            discord.SelectOption(label="同盟国一覧", value="alliance_list"),
-            discord.SelectOption(label="国連加盟国一覧", value="un_list"),
-            discord.SelectOption(label="設立陣営一覧", value="camp_list")
+            discord.SelectOption(label="Declare War", value="war"),
+            discord.SelectOption(label="Propose Alliance", value="alliance_invite"),
+            discord.SelectOption(label="Dissolve Alliance", value="alliance_cancel"),
+            discord.SelectOption(label="Alliances List", value="alliance_list"),
+            discord.SelectOption(label="UN Members List", value="un_list"),
+            discord.SelectOption(label="Camps List", value="camp_list")
         ]
-        super().__init__(placeholder="実行する外交アクションを選択...", options=options)
+        super().__init__(placeholder="Select a diplomatic action...", options=options)
 
     async def callback(self, interaction: discord.Interaction):
         val = self.values[0]
@@ -221,36 +221,36 @@ class DiplomacyActionSelect(discord.ui.Select):
                 c = conn.cursor()
                 c.execute("SELECT user_a, user_b FROM alliances WHERE guild_id=? AND world_id=?", (str(interaction.guild_id), self.world_id))
                 rows = c.fetchall()
-            if not rows: return await interaction.response.send_message(f"[世界#{self.world_id}] 結ばれている同盟はありません。", ephemeral=True)
-            embed = discord.Embed(title=f"締結済みの軍事同盟 [世界#{self.world_id}]", description="\n".join([f"・ <@{a}> ＆ <@{b}>" for a, b in rows]), color=0x3498db)
+            if not rows: return await interaction.response.send_message(f"[World #{self.world_id}] No alliances currently formed.", ephemeral=True)
+            embed = discord.Embed(title=f"Formed Alliances [World #{self.world_id}]", description="\n".join([f"・ <@{a}> & <@{b}>" for a, b in rows]), color=0x3498db)
             await interaction.response.send_message(embed=embed, ephemeral=True)
         elif val == "un_list": await run_un_list(interaction)
         elif val == "camp_list": await run_camp_list(interaction)
         else:
             view = discord.ui.View(timeout=60)
             view.add_item(DiplomacyUserSelect(val, self.world_id))
-            await interaction.response.send_message("👉 次に対象となるプレイヤーを選択してください:", view=view, ephemeral=True)
+            await interaction.response.send_message("Select a target player next:", view=view, ephemeral=True)
 
 class CountryManageSelect(discord.ui.Select):
     def __init__(self, territories, world_id, user_id):
         self.world_id = world_id; self.user_id = user_id
-        options = [discord.SelectOption(label=t[0], description=f"防衛力: {t[1]}") for t in territories[:25]]
-        super().__init__(placeholder="管理する領土を選択してください", min_values=1, max_values=1, options=options)
+        options = [discord.SelectOption(label=t[0], description=f"Defense: {t[1]}") for t in territories[:25]]
+        super().__init__(placeholder="Select a territory to manage", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
         selected_iso = self.values[0]
         view = discord.ui.View(timeout=60)
-        btn_abandon = discord.ui.Button(label="所有権を放棄する", style=discord.ButtonStyle.danger)
+        btn_abandon = discord.ui.Button(label="Abandon Territory", style=discord.ButtonStyle.danger)
         async def abandon_callback(i: discord.Interaction):
             with get_db_connection() as conn:
                 c = conn.cursor()
                 c.execute("DELETE FROM territories WHERE guild_id=? AND world_id=? AND iso_alpha=? AND owner_id=?", (str(i.guild_id), self.world_id, selected_iso, self.user_id))
                 conn.commit()
             for child in view.children: child.disabled = True
-            await i.response.edit_message(content=f"[完了] **{selected_iso}** の所有権を放棄しました。", view=view)
+            await i.response.edit_message(content=f"[Done] Abandoned ownership of **{selected_iso}**.", view=view)
         btn_abandon.callback = abandon_callback
         view.add_item(btn_abandon)
-        await interaction.response.edit_message(content=f"**{selected_iso}** の管理メニュー", view=view)
+        await interaction.response.edit_message(content=f"**{selected_iso}** Management Menu", view=view)
 
 class CountryManageMainView(discord.ui.View):
     def __init__(self, territories, world_id, user_id):
@@ -262,66 +262,66 @@ class HelpView(discord.ui.View):
         super().__init__(timeout=None)
 
     def generate_embed(self, page_id: str):
-        embed = discord.Embed(title="全世界戦争Bot ガイドブック", color=0x3498db)
+        embed = discord.Embed(title="World War Bot Guidebook", color=0x3498db)
         
         if page_id == "basic":
-            embed.description = "**基本ルールと資源**\nこのBotは国を奪い合い、世界の覇権を握るシミュレーションゲームです。"
-            embed.add_field(name="定時給付", value="毎日(7:00 / 19:00 JST)に基本給(1000G)・税収・石油配給があります。維持費(領土数×25L)も引かれます。", inline=False)
-            embed.add_field(name="労働と資源", value="`/work` を使うと資金とオイルを稼げます。序盤はこれを回しましょう。\n資金が尽きたら `/war_bonds` で国庫から5000G借りられます(給付から天引き)。", inline=False)
+            embed.description = "**Basic Rules & Resources**\nThis bot is a strategic simulation game where players battle for territorial control and global supremacy."
+            embed.add_field(name="Scheduled Rations", value="Every 12 hours (7:00 / 19:00 UTC), you receive base income (1,000G), tax revenues, and oil rations. Maintenance (territories × 25L) is deducted.", inline=False)
+            embed.add_field(name="Work & Capital", value="Run `/work` to earn funds and oil.\nIf you run out of funds, `/war_bonds` lets you borrow 5,000G from national reserves (deducted from rations).", inline=False)
             
         elif page_id == "war":
-            embed.description = "**戦争と内政**"
-            embed.add_field(name="侵攻作戦", value="`/attack` で他国や空き地を攻めます。**入力した資金がそのまま消費**されます。\n宣戦布告なしの奇襲や、遠い国への攻撃は、実質的な攻撃力がペナルティで減少します。", inline=False)
-            embed.add_field(name="防衛と大国ボーナス", value="`/defend` で領土の防衛力を上げます。\n**領土を3つ以上持つ大国**は、防衛費が割引(0.9倍)され、より効率的に国を守ることができます。", inline=False)
+            embed.description = "**Warfare & Domestic Affairs**"
+            embed.add_field(name="Invasions", value="Use `/attack` to conquer territories. Invested funds directly determine your attack power.\nSurprise attacks or distant invasions suffer penalties.", inline=False)
+            embed.add_field(name="Defense & Empire Bonus", value="Use `/defend` to fortify defenses.\n**Empires holding 3+ territories** receive a 10% discount on defense costs.", inline=False)
             
         elif page_id == "diplomacy":
-            embed.description = "**外交と貿易**"
-            embed.add_field(name="宣戦布告と同盟", value="`/gui` から行います。宣戦布告を断られても、相手に奇襲を仕掛けることができます。\n同盟を結ぶと相互不可侵となり、攻撃を受けた際にDM通知が飛びます。", inline=False)
-            embed.add_field(name="貿易", value="`/import_oil` で他プレイヤーからオイルを購入したり、`/convert_resource` でシステムと直接資金・オイルを交換できます。", inline=False)
+            embed.description = "**Diplomacy & Trade**"
+            embed.add_field(name="Wars & Alliances", value="Managed via `/gui`. Even if a war declaration is refused, surprise attacks remain possible.\nAllies enjoy mutual non-aggression and DM alerts when attacked.", inline=False)
+            embed.add_field(name="Trade", value="Buy oil from other players via `/import_oil` or exchange resources directly with `/convert_resource`.", inline=False)
             
         elif page_id == "system":
-            embed.description = "**システムとアップデート**"
-            embed.add_field(name="バージョン一覧", value="`/version` : 閲覧可能なアップデート一覧（最新10件）を確認できます。", inline=False)
-            embed.add_field(name="アプデ詳細確認", value="`/update` : 最新のアップデート情報を表示します。\n`/update [バージョン]` : 指定した過去バージョン（例: `/update v1.0`）の詳細を表示します。", inline=False)
-            embed.add_field(name="個人設定", value="`/user_setting` : 確認ダイアログのON/OFFなど、各種表示設定を変更できます。", inline=False)
+            embed.description = "**System & Updates**"
+            embed.add_field(name="Version History", value="`/version` : View recent updates.", inline=False)
+            embed.add_field(name="Update Details", value="`/update` : Latest update notes.\n`/update [version]` : Specific update details.", inline=False)
+            embed.add_field(name="Preferences", value="`/user_setting` : Toggle confirmation dialogs and view settings.", inline=False)
 
         elif page_id == "admin":
-            embed.description = "**管理者向け機能**"
-            embed.add_field(name="OPコマンド", value="初めに `/op setup` で専用チャンネルを一括作成してください。\nその他の設定もすべて `/op` から始まるコマンドで操作可能です。", inline=False)
+            embed.description = "**Admin Features**"
+            embed.add_field(name="OP Commands", value="Run `/op setup` to batch-create dedicated channels.\nAll other server settings are configured via `/op` commands.", inline=False)
             
         return embed
 
-    @discord.ui.button(label="基本ルール", style=discord.ButtonStyle.primary, custom_id="help_basic")
+    @discord.ui.button(label="Basic Rules", style=discord.ButtonStyle.primary, custom_id="help_basic")
     async def btn_basic(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(embed=self.generate_embed("basic"), view=self)
 
-    @discord.ui.button(label="戦争と内政", style=discord.ButtonStyle.secondary, custom_id="help_war")
+    @discord.ui.button(label="War & Defense", style=discord.ButtonStyle.secondary, custom_id="help_war")
     async def btn_war(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(embed=self.generate_embed("war"), view=self)
 
-    @discord.ui.button(label="外交と貿易", style=discord.ButtonStyle.secondary, custom_id="help_dip")
+    @discord.ui.button(label="Diplomacy", style=discord.ButtonStyle.secondary, custom_id="help_dip")
     async def btn_dip(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(embed=self.generate_embed("diplomacy"), view=self)
 
-    @discord.ui.button(label="システム・更新", style=discord.ButtonStyle.success, custom_id="help_sys")
+    @discord.ui.button(label="System & Updates", style=discord.ButtonStyle.success, custom_id="help_sys")
     async def btn_sys(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(embed=self.generate_embed("system"), view=self)
 
-    @discord.ui.button(label="管理者向け", style=discord.ButtonStyle.danger, custom_id="help_admin")
+    @discord.ui.button(label="Admin", style=discord.ButtonStyle.danger, custom_id="help_admin")
     async def btn_admin(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(embed=self.generate_embed("admin"), view=self)
 
 class CommandGUIView(discord.ui.View):
     def __init__(self): super().__init__(timeout=None)
-    @discord.ui.select(placeholder="メニューからかんたん操作を選択...", options=[
-        discord.SelectOption(label="ステータス確認", value="status", description="自分の資金・石油や総兵力をチェック"),
-        discord.SelectOption(label="侵攻作戦の立案 (Attack)", value="attack", description="指定した国へ攻撃を仕掛ける"),
-        discord.SelectOption(label="外交手続き (GUI)", value="gui", description="宣戦布告や同盟の申請/破棄を行う"),
-        discord.SelectOption(label="領土の管理", value="country_management", description="所有している領土の所有権放棄メニュー"),
-        discord.SelectOption(label="国家への投資 (Invest)", value="invest", description="資金を投資して国力を高める"),
-        discord.SelectOption(label="技術研究 (Research)", value="research", description="技術レベルを上げ、工作の成功率をアップ"),
-        discord.SelectOption(label="スパイ派遣 (Spy)", value="spy", description="他国へ潜入し、情報を抜き取る"),
-        discord.SelectOption(label="プロパガンダ (Propaganda)", value="propaganda", description="他国の防衛力を低下させる"),
+    @discord.ui.select(placeholder="Select an action from menu...", options=[
+        discord.SelectOption(label="Check Status", value="status", description="Check funds, oil, and military force"),
+        discord.SelectOption(label="Plan Attack", value="attack", description="Launch an attack on a target nation"),
+        discord.SelectOption(label="Diplomacy (GUI)", value="gui", description="Declare war, form/break alliances"),
+        discord.SelectOption(label="Manage Territories", value="country_management", description="Abandon territory ownership"),
+        discord.SelectOption(label="Invest National Budget", value="invest", description="Invest funds to strengthen your nation"),
+        discord.SelectOption(label="Tech Research", value="research", description="Upgrade tech level to boost spy/propaganda rate"),
+        discord.SelectOption(label="Dispatch Spy", value="spy", description="Infiltrate another nation for intel"),
+        discord.SelectOption(label="Propaganda", value="propaganda", description="Decrease enemy territorial defense"),
     ])
     async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
         val = select.values[0]
@@ -342,19 +342,19 @@ class AttackConfirmView(discord.ui.View):
         self.target_code = target_code; self.active_world = active_world
         self.total_cost = total_cost; self.actual_power = actual_power; self.warning_text = warning_text
 
-    @discord.ui.button(label="この内容で進軍する", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Launch Invasion", style=discord.ButtonStyle.danger)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         for child in self.children: child.disabled = True
-        await interaction.response.edit_message(content="部隊を出撃させています...", view=self)
+        await interaction.response.edit_message(content="Deploying troops...", view=self)
         await execute_attack_logic(interaction, self.target_code, self.active_world, self.total_cost)
 
-    @discord.ui.button(label="やめる", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         for child in self.children: child.disabled = True
-        await interaction.response.edit_message(content="作戦を中止しました。", view=self)
+        await interaction.response.edit_message(content="Operation cancelled.", view=self)
 
-class TroopModal(discord.ui.Modal, title="攻撃部隊の編成"):
-    troops_input = discord.ui.TextInput(label="投入する資金 (消費額)", placeholder="例: 1000", required=True)
+class TroopModal(discord.ui.Modal, title="Assemble Invasion Force"):
+    troops_input = discord.ui.TextInput(label="Funds to Commit (Gold)", placeholder="e.g. 1000", required=True)
     def __init__(self, target_code: str, active_world: int):
         super().__init__()
         self.target_code = target_code; self.active_world = active_world
@@ -362,8 +362,8 @@ class TroopModal(discord.ui.Modal, title="攻撃部隊の編成"):
     async def on_submit(self, interaction: discord.Interaction):
         raw_val = self.troops_input.value.translate(str.maketrans('０１２３４５６７８９', '0123456789')).replace(',', '').strip()
         try: total_cost = int(raw_val)
-        except ValueError: return await interaction.response.send_message("[エラー] 正しい数字を入力してください。", ephemeral=True)
-        if total_cost <= 0: return await interaction.response.send_message("[エラー] 資金は1以上で入力してください。", ephemeral=True)
+        except ValueError: return await interaction.response.send_message("[Error] Please enter a valid number.", ephemeral=True)
+        if total_cost <= 0: return await interaction.response.send_message("[Error] Investment must be at least 1 Gold.", ephemeral=True)
 
         guild_id, user_id, world_id = str(interaction.guild_id), str(interaction.user.id), self.active_world
         with get_db_connection() as conn:
@@ -392,12 +392,12 @@ class TroopModal(discord.ui.Modal, title="攻撃部隊の編成"):
 
         if confirm == 1:
             warning = []
-            if base_cost_multiplier > 1.0: warning.append("[警告] 未宣戦による奇襲ペナルティあり")
-            if distance_penalty > 1.0: warning.append("[警告] 非隣接による遠征ペナルティあり")
-            warn_str = "\n".join(warning) if warning else "[情報] ペナルティなし"
+            if base_cost_multiplier > 1.0: warning.append("[Warning] Surprise attack penalty applies (No prior war declaration)")
+            if distance_penalty > 1.0: warning.append("[Warning] Non-adjacent expedition penalty applies")
+            warn_str = "\n".join(warning) if warning else "[Info] No penalties"
 
             view = AttackConfirmView(self.target_code, world_id, total_cost, actual_power, warn_str)
-            msg = f"**最終確認**\n対象: **{self.target_code}**\n\n投入資金: **{total_cost} Gold**\n{warn_str}\n\n実質的な攻撃力: **{actual_power}**\nこの内容で出撃してよろしいですか？"
+            msg = f"**Final Confirmation**\nTarget: **{self.target_code}**\n\nCommitted Funds: **{total_cost} Gold**\n{warn_str}\n\nEffective Attack Power: **{actual_power}**\nConfirm troop deployment?"
             await interaction.response.send_message(msg, view=view, ephemeral=True)
         else:
             await safe_defer(interaction)
@@ -408,42 +408,44 @@ class AttackView(discord.ui.View):
         super().__init__(timeout=60)
         self.author_id = author_id; self.target_code = target_code; self.active_world = active_world
 
-    @discord.ui.button(label="進軍する", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Advance", style=discord.ButtonStyle.danger)
     async def confirm_attack(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.author_id: return await interaction.response.send_message("[エラー] 操作できません。", ephemeral=True)
+        if interaction.user.id != self.author_id: return await interaction.response.send_message("[Error] You cannot interact with this menu.", ephemeral=True)
         await interaction.response.send_modal(TroopModal(self.target_code, self.active_world))
         for child in self.children: child.disabled = True
         try: await interaction.message.edit(view=self)
         except Exception: pass
 
-    @discord.ui.button(label="取り消す", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
     async def cancel_attack(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.author_id: return await interaction.response.send_message("[エラー] 操作できません。", ephemeral=True)
+        if interaction.user.id != self.author_id: return await interaction.response.send_message("[Error] You cannot interact with this menu.", ephemeral=True)
         for child in self.children: child.disabled = True
-        try: await interaction.message.edit(content="作戦を中止しました。", embed=None, view=self)
+        try: await interaction.message.edit(content="Operation cancelled.", embed=None, view=self)
         except Exception: pass
 
-class AttackTargetModal(discord.ui.Modal, title="侵攻先の設定"):
-    target_input = discord.ui.TextInput(label="攻撃目標の国コード", placeholder="例: JPN", required=True)
+class AttackTargetModal(discord.ui.Modal, title="Select Invasion Target"):
+    target_input = discord.ui.TextInput(label="Target Country ISO Code", placeholder="e.g. JPN", required=True)
     async def on_submit(self, interaction: discord.Interaction):
         await run_attack(interaction, self.target_input.value)
 
-class DefendAmountModal(discord.ui.Modal, title="防衛費の投資"):
-    amount_input = discord.ui.TextInput(label="1国あたりの投資額", placeholder="例: 100", required=True)
+class DefendAmountModal(discord.ui.Modal, title="Invest in Defense"):
+    amount_input = discord.ui.TextInput(label="Investment per territory (Gold)", placeholder="e.g. 100", required=True)
     def __init__(self, selected_codes, active_world):
         super().__init__()
         self.selected_codes = selected_codes; self.active_world = active_world
     async def on_submit(self, interaction: discord.Interaction):
         await safe_defer(interaction, ephemeral=True)
         try: amount = int(self.amount_input.value)
-        except ValueError: return await interaction.followup.send("[エラー] 正しい数字を入力してください。", ephemeral=True)
+        except ValueError: return await interaction.followup.send("[Error] Please enter a valid number.", ephemeral=True)
         await execute_defend_logic(interaction, self.selected_codes, amount, self.active_world)
 
 class DefendMultiSelect(discord.ui.Select):
     def __init__(self, territories, active_world):
         self.active_world = active_world
-        options = [discord.SelectOption(label=t[0], description=f"現在の防衛力: {t[1]}") for t in territories[:25]]
-        super().__init__(placeholder="投資する領土を選択 (複数可)", min_values=1, max_values=len(options), options=options)
+        options = [discord.SelectOption(label=t[0], description=f"Current Defense: {t[1]}") for t in territories[:25]]
+        super().__init__(placeholder="Select territories to defend (multiple allowed)", min_values=1, max_values=len(options), options=options)
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(DefendAmountModal(self.values, self.active_world))
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.send_modal(DefendAmountModal(self.values, self.active_world))
 
@@ -812,11 +814,11 @@ async def run_update(interaction: discord.Interaction, version: str = None):
         embed = discord.Embed(title=f"☁ 全世界戦争Bot アップデート情報 ({target_version})", description=content, color=0x3498db)
         await interaction.followup.send(embed=embed, ephemeral=True)
     except Exception as e:
-        await interaction.followup.send(f"[エラー] ファイルの読み込みに失敗しました: {e}", ephemeral=True)
+        await interaction.followup.send(f"[Error] Failed to read version file: {e}", ephemeral=True)
 
 async def run_invest(interaction: discord.Interaction, amount: int):
     await safe_defer(interaction, ephemeral=True)
-    if amount <= 0: return await interaction.followup.send("[エラー] 投資額は1 Gold以上にしてください。", ephemeral=True)
+    if amount <= 0: return await interaction.followup.send("[Error] Investment amount must be at least 1 Gold.", ephemeral=True)
     world_id = await ensure_world_context(interaction)
     if world_id == 0: return
     guild_id, user_id = str(interaction.guild_id), str(interaction.user.id)
@@ -825,17 +827,17 @@ async def run_invest(interaction: discord.Interaction, amount: int):
         c = conn.cursor()
         c.execute("SELECT gold, invest FROM players WHERE guild_id=? AND world_id=? AND user_id=?", (guild_id, world_id, user_id))
         row = c.fetchone()
-        if not row: return await interaction.followup.send("[エラー] 国家データが見つかりません。", ephemeral=True)
+        if not row: return await interaction.followup.send("[Error] National player data not found.", ephemeral=True)
         current_gold, current_invest = row[0], (row[1] if row[1] else 0)
         
-        if current_gold < amount: return await interaction.followup.send(f"[エラー] 資金不足です。(現在: **{current_gold} Gold**)", ephemeral=True)
+        if current_gold < amount: return await interaction.followup.send(f"[Error] Insufficient funds. (Current: **{current_gold} Gold**)", ephemeral=True)
         
         new_gold = current_gold - amount
         new_invest = current_invest + amount
         c.execute("UPDATE players SET gold=?, invest=? WHERE guild_id=? AND world_id=? AND user_id=?", (new_gold, new_invest, guild_id, world_id, user_id))
         conn.commit()
         
-    await interaction.followup.send(f"📈 **[投資完了]**\n国家インフラに **{amount} Gold** を投資しました！\n現在の総投資額: **{new_invest}**" + get_promo_and_tip(), ephemeral=True)
+    await interaction.followup.send(f"[Investment Complete]\nInvested **{amount} Gold** into national infrastructure!\nTotal Invested: **{new_invest}**" + get_promo_and_tip(), ephemeral=True)
 
 async def run_research(interaction: discord.Interaction):
     await safe_defer(interaction, ephemeral=True)
@@ -847,18 +849,18 @@ async def run_research(interaction: discord.Interaction):
         c = conn.cursor()
         c.execute("SELECT gold, oil, tech_level FROM players WHERE guild_id=? AND world_id=? AND user_id=?", (guild_id, world_id, user_id))
         row = c.fetchone()
-        if not row: return await interaction.followup.send("[エラー] 国家データが見つかりません。", ephemeral=True)
+        if not row: return await interaction.followup.send("[Error] National player data not found.", ephemeral=True)
         
         gold, oil, tech_level = row[0], row[1], (row[2] if row[2] else 1)
         cost_gold = tech_level * 1000
         cost_oil = tech_level * 500
         
         if gold < cost_gold or oil < cost_oil:
-            return await interaction.followup.send(f"🧪 **[研究失敗: 資源不足]**\n**Lv.{tech_level+1}** への研究には以下の資源が必要です。\n・資金: **{cost_gold} Gold** (現在: {gold})\n・石油: **{cost_oil} L** (現在: {oil})", ephemeral=True)
+            return await interaction.followup.send(f"[Research Failed: Insufficient Resources]\nUpgrading to **Lv.{tech_level+1}** requires:\n- Funds: **{cost_gold} Gold** (Current: {gold})\n- Oil: **{cost_oil} L** (Current: {oil})", ephemeral=True)
         
         c.execute("UPDATE players SET gold=gold-?, oil=oil-?, tech_level=tech_level+1 WHERE guild_id=? AND world_id=? AND user_id=?", (cost_gold, cost_oil, guild_id, world_id, user_id))
         conn.commit()
-    await interaction.followup.send(f"🔬 **[研究完了]**\n技術研究が成功しました！国家のテックレベルが **Lv.{tech_level+1}** に上昇しました！" + get_promo_and_tip(), ephemeral=True)
+    await interaction.followup.send(f"[Research Complete]\nTech research succeeded! National Tech Level upgraded to **Lv.{tech_level+1}**!" + get_promo_and_tip(), ephemeral=True)
 
 async def run_spy(interaction: discord.Interaction, target: str):
     await safe_defer(interaction, ephemeral=True)
@@ -871,12 +873,12 @@ async def run_spy(interaction: discord.Interaction, target: str):
         c = conn.cursor()
         c.execute("SELECT gold, tech_level FROM players WHERE guild_id=? AND world_id=? AND user_id=?", (guild_id, world_id, user_id))
         row = c.fetchone()
-        if not row or row[0] < cost: return await interaction.followup.send(f"[エラー] 資金 **{cost} Gold** が必要です。", ephemeral=True)
+        if not row or row[0] < cost: return await interaction.followup.send(f"[Error] Requires **{cost} Gold**.", ephemeral=True)
 
         c.execute("SELECT owner_id, defense FROM territories WHERE guild_id=? AND world_id=? AND iso_alpha=?", (guild_id, world_id, target_code))
         t_row = c.fetchone()
-        if not t_row: return await interaction.followup.send(f"[エラー] {target_code} は中立国か、存在しない国です。", ephemeral=True)
-        if t_row[0] == user_id: return await interaction.followup.send("[エラー] 自国にスパイは派遣できません。", ephemeral=True)
+        if not t_row: return await interaction.followup.send(f"[Error] {target_code} is neutral or does not exist.", ephemeral=True)
+        if t_row[0] == user_id: return await interaction.followup.send("[Error] Cannot spy on your own nation.", ephemeral=True)
 
         tech_level = row[1] if row[1] else 1
         success_rate = min(95, 60 + (tech_level * 2))
@@ -887,9 +889,9 @@ async def run_spy(interaction: discord.Interaction, target: str):
         if is_success:
             c.execute("SELECT user_name, gold, oil FROM players WHERE guild_id=? AND world_id=? AND user_id=?", (guild_id, world_id, t_row[0]))
             enemy = c.fetchone()
-            msg = f"🕵️ **[潜入成功]**\n**{target_code}** への潜入に成功しました！\n\n**【極秘データ】**\n・統治者: **{enemy[0]}**\n・現在防衛力: **{t_row[1]}** 人\n・国家資金: **{enemy[1]}** Gold\n・石油備蓄: **{enemy[2]}** L\n・潜入成功率: {success_rate}%"
+            msg = f"[Infiltration Successful]\nInfiltrated **{target_code}**!\n\n**[Confidential Data]**\n- Ruler: **{enemy[0]}**\n- Current Defense: **{t_row[1]}** troops\n- Treasury: **{enemy[1]}** Gold\n- Oil Reserves: **{enemy[2]}** L\n- Infiltration Rate: {success_rate}%"
         else:
-            msg = f"💥 **[潜入失敗]**\n防衛網に引っかかりスパイは捕らえられました...\n工作資金 **{cost} Gold** を失いました。(成功率: {success_rate}%)"
+            msg = f"[Infiltration Failed]\nSpy caught in enemy defenses...\nLost **{cost} Gold** in operation funds. (Success rate: {success_rate}%)"
         conn.commit()
     await interaction.followup.send(msg + get_promo_and_tip(), ephemeral=True)
 
@@ -904,12 +906,12 @@ async def run_propaganda(interaction: discord.Interaction, target: str):
         c = conn.cursor()
         c.execute("SELECT gold, tech_level FROM players WHERE guild_id=? AND world_id=? AND user_id=?", (guild_id, world_id, user_id))
         row = c.fetchone()
-        if not row or row[0] < cost: return await interaction.followup.send(f"[エラー] 資金 **{cost} Gold** が必要です。", ephemeral=True)
+        if not row or row[0] < cost: return await interaction.followup.send(f"[Error] Requires **{cost} Gold**.", ephemeral=True)
 
         c.execute("SELECT owner_id, defense FROM territories WHERE guild_id=? AND world_id=? AND iso_alpha=?", (guild_id, world_id, target_code))
         t_row = c.fetchone()
-        if not t_row: return await interaction.followup.send(f"[エラー] {target_code} は中立国か、存在しない国です。", ephemeral=True)
-        if t_row[0] == user_id: return await interaction.followup.send("[エラー] 自国には工作を行えません。", ephemeral=True)
+        if not t_row: return await interaction.followup.send(f"[Error] {target_code} is neutral or does not exist.", ephemeral=True)
+        if t_row[0] == user_id: return await interaction.followup.send("[Error] Cannot run propaganda against your own nation.", ephemeral=True)
 
         tech_level = row[1] if row[1] else 1
         success_rate = min(90, 40 + (tech_level * 3))
@@ -921,9 +923,9 @@ async def run_propaganda(interaction: discord.Interaction, target: str):
             drop_amount = max(10, int(t_row[1] * random.uniform(0.10, 0.20)))
             new_def = max(100, t_row[1] - drop_amount)
             c.execute("UPDATE territories SET defense=? WHERE guild_id=? AND world_id=? AND iso_alpha=?", (new_def, guild_id, world_id, target_code))
-            msg = f"📢 **[工作成功]**\n民衆を扇動し暴動を起こさせました！\n混乱により現地の防衛力が **{t_row[1] - new_def}** 減少しました！ (現在の防衛力: {new_def})"
+            msg = f"[Propaganda Successful]\nInstigated riots among the public!\nLocal defense decreased by **{t_row[1] - new_def}**! (Current Defense: {new_def})"
         else:
-            msg = f"❌ **[工作失敗]**\nプロパガンダは見破られ強制送還されました...\n工作資金 **{cost} Gold** を無駄にしました。"
+            msg = f"[Propaganda Failed]\nPropaganda was exposed and operatives deported...\nWasted **{cost} Gold**."
         conn.commit()
     await interaction.followup.send(msg + get_promo_and_tip(), ephemeral=True)        
 # ==============================================================================
@@ -938,9 +940,9 @@ class PeaceTreatyView(discord.ui.View):
         self.proposer_name = proposer_name
         self.target_id = target_id
 
-    @discord.ui.button(label="承認する", style=discord.ButtonStyle.success, emoji="🕊️")
+    @discord.ui.button(label="Accept", style=discord.ButtonStyle.success)
     async def btn_accept(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if str(interaction.user.id) != self.target_id: return await interaction.response.send_message("あなたへの提案ではありません。", ephemeral=True)
+        if str(interaction.user.id) != self.target_id: return await interaction.response.send_message("This proposal is not addressed to you.", ephemeral=True)
         await interaction.response.defer()
         
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -951,13 +953,13 @@ class PeaceTreatyView(discord.ui.View):
             c.execute("INSERT OR REPLACE INTO peace_treaties (guild_id, world_id, user_a, user_b, expires_at) VALUES (?, ?, ?, ?, ?)", (self.guild_id, self.world_id, self.proposer_id, self.target_id, expires))
             conn.commit()
             
-        add_world_log(self.guild_id, self.world_id, f"{self.proposer_name} と {interaction.user.display_name} が24時間の不戦協定を締結しました。")
+        add_world_log(self.guild_id, self.world_id, f"{self.proposer_name} and {interaction.user.display_name} signed a 24-hour Peace Treaty.")
         self.stop()
-        await interaction.message.edit(content=f"🕊️ **不戦協定締結**\n{self.proposer_name} と {interaction.user.display_name} は、向こう24時間の不戦協定を結びました！", view=None)
+        await interaction.message.edit(content=f"**Peace Treaty Signed**\n{self.proposer_name} and {interaction.user.display_name} signed a 24-hour Peace Treaty!", view=None)
 
-    @discord.ui.button(label="Decline", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Decline", style=discord.ButtonStyle.secondary)
     async def btn_reject(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if str(interaction.user.id) != self.target_id: return await interaction.response.send_message("あなたへの提案ではありません。", ephemeral=True)
+        if str(interaction.user.id) != self.target_id: return await interaction.response.send_message("This proposal is not addressed to you.", ephemeral=True)
         await interaction.response.defer()
         self.stop()
-        await interaction.message.edit(content=f"💥 **協定拒否**\n{interaction.user.display_name} は {self.proposer_name} の不戦協定提案を蹴り飛ばしました。", view=None)
+        await interaction.message.edit(content=f"**Treaty Declined**\n{interaction.user.display_name} declined the peace treaty proposal from {self.proposer_name}.", view=None)
